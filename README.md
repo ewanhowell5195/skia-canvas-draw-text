@@ -114,7 +114,7 @@ const text = await drawText("omg flushed emoji and weary emoji are kissing\n\n",
 text.saveAs("out.png")
 ```
 
-## Drawing to an existing canvas
+### Drawing to an existing canvas
 ```js
 const canvas = new Canvas(1024, 1024)
 const ctx = canvas.getContext("2d")

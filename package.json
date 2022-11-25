@@ -1,0 +1,24 @@
+{
+  "name": "skia-canvas-draw-text",
+  "version": "1.0.0",
+  "description": "A function to make drawing text easier with skia-canvas",
+  "type": "module",
+  "exports": "./index.js",
+  "author": "Ewan Howell",
+  "license": "MIT",
+  "dependencies": {
+    "skia-canvas": "1.0.0",
+    "skia-canvas-twemoji": "github:ewanhowell5195/skia-canvas-twemoji"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ewanhowell5195/skia-canvas-draw-text.git"
+  },
+  "keywords": [
+    "node",
+    "canvas",
+    "skia-canvas",
+    "text",
+    "drawing"
+  ]
+}

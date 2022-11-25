@@ -96,7 +96,7 @@ const text = await drawText("This is an example", {
 text.saveAs("out.png")
 ```
 ```js
-const text = await drawText("omg flushed emoji and weary emoji are kissing\n\n", {
+const text = await drawText("omg flushed emoji and weary emoji are kissing\n\n😳💋😩", {
   colour: "red",
   fontSize: 50,
   fontFamily: "Arial",

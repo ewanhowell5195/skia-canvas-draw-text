@@ -18,7 +18,7 @@ export const drawText = async (text, args) => {
     args.fontSize = 10
   }
   if (args.wrap) {
-    const widthRestriction = Math.max(args.width, 1) ?? ctx.canvas.width
+    const widthRestriction = args.width ?? ctx.canvas.width
     let shadowOffsetX, shadowOffsetY, shadowDistance, paddingLeft, paddingTop, shadowWidth, shadowHeight, lines, maxWidth, metrics, textHeight, textGap, maxHeight
     function calculate() {
       shadowOffsetX = args.shadowOffset ? Math.ceil(args.fontSize / 200 * args.shadowOffset[0]) : 0
@@ -34,8 +34,8 @@ export const drawText = async (text, args) => {
       textGap = textHeight / 100 * (args.spacing ?? 0)
       maxHeight = (textHeight * lines.length + textGap * (lines.length - 1))
     }
-    if (!isNaN(args.height)) {
-      args.height = Math.max(args.height, 1)
+    calculate()
+    if (args.height) {
       let heightLimit = args.height - Math.abs(shadowOffsetY) - shadowHeight
       while (args.fontSize > 1 && maxHeight >= heightLimit) {
         ctx.font = `${bold}${args.fontSize--}px${fontFamily}`;
@@ -43,7 +43,7 @@ export const drawText = async (text, args) => {
         heightLimit = args.height - Math.abs(shadowOffsetY) - shadowHeight
       }
     }
-    const textCanvas = new Canvas(maxWidth + Math.abs(shadowOffsetX) + shadowWidth, Math.floor(maxHeight + Math.abs(shadowOffsetY) + shadowHeight))
+    const textCanvas = new Canvas(Math.max(1, maxWidth + Math.abs(shadowOffsetX) + shadowWidth), Math.max(1, Math.floor(maxHeight + Math.abs(shadowOffsetY) + shadowHeight)))
     const textCtx = textCanvas.getContext("2d")
     textCtx.font = `${bold}${args.fontSize}px${args.fontFamily ? ` ${args.fontFamily}` : ""}`
     textCtx.fillStyle = args.colour ?? "#000"
@@ -110,8 +110,8 @@ export const drawText = async (text, args) => {
     ctx.fillStyle = args.colour ?? "#000"
     if (args.align) ctx.textAlign = args.align
     if (args.baseline) ctx.textBaseline = args.baseline
-    if (!isNaN(args.width)) {
-      while (args.fontSize > 1 && ctx.measureText(text).width > Math.max(args.width, 1)) {
+    if (args.width) {
+      while (args.fontSize > 1 && ctx.measureText(text).width > args.width) {
         ctx.font = `${bold}${--args.fontSize}px${args.fontFamily ? ` ${args.fontFamily}` : ""}`
       }
     }
@@ -125,7 +125,7 @@ export const drawText = async (text, args) => {
       const metrics = ctx.measureText(text)
       const oldCtx = Object.assign(ctx, {})
       const shadowBlurOffset = ctx.shadowBlur / 2
-      const canvas = new Canvas(Math.ceil(metrics.width + Math.abs(ctx.shadowOffsetX) + shadowBlurOffset), Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent + Math.abs(ctx.shadowOffsetY) + shadowBlurOffset))
+      const canvas = new Canvas(Math.max(1, Math.ceil(metrics.width + Math.abs(ctx.shadowOffsetX) + shadowBlurOffset)), Math.max(1, Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent + Math.abs(ctx.shadowOffsetY) + shadowBlurOffset)))
       const ctx2 = canvas.getContext("2d")
       ctx2.textBaseline = "top"
       ctx2.fillStyle = ctx.fillStyle

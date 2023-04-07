@@ -18,7 +18,7 @@ export const drawText = async (text, args) => {
     args.fontSize = 10
   }
   if (args.wrap) {
-    const widthRestriction = args.width ?? ctx.canvas.width
+    const widthRestriction = Math.max(args.width, 1) ?? ctx.canvas.width
     let shadowOffsetX, shadowOffsetY, shadowDistance, paddingLeft, paddingTop, shadowWidth, shadowHeight, lines, maxWidth, metrics, textHeight, textGap, maxHeight
     function calculate() {
       shadowOffsetX = args.shadowOffset ? Math.ceil(args.fontSize / 200 * args.shadowOffset[0]) : 0
@@ -34,8 +34,8 @@ export const drawText = async (text, args) => {
       textGap = textHeight / 100 * (args.spacing ?? 0)
       maxHeight = (textHeight * lines.length + textGap * (lines.length - 1))
     }
-    calculate()
-    if (args.height) {
+    if (!isNaN(args.height)) {
+      args.height = Math.max(args.height, 1)
       let heightLimit = args.height - Math.abs(shadowOffsetY) - shadowHeight
       while (args.fontSize > 1 && maxHeight >= heightLimit) {
         ctx.font = `${bold}${args.fontSize--}px${fontFamily}`;
@@ -110,8 +110,8 @@ export const drawText = async (text, args) => {
     ctx.fillStyle = args.colour ?? "#000"
     if (args.align) ctx.textAlign = args.align
     if (args.baseline) ctx.textBaseline = args.baseline
-    if (args.width) {
-      while (args.fontSize > 1 && ctx.measureText(text).width > args.width) {
+    if (!isNaN(args.width)) {
+      while (args.fontSize > 1 && ctx.measureText(text).width > Math.max(args.width, 1)) {
         ctx.font = `${bold}${--args.fontSize}px${args.fontFamily ? ` ${args.fontFamily}` : ""}`
       }
     }

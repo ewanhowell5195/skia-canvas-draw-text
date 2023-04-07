@@ -1,6 +1,6 @@
 {
   "name": "skia-canvas-draw-text",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A function to make drawing text easier with skia-canvas",
   "type": "module",
   "exports": "./index.js",

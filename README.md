@@ -79,6 +79,16 @@ Certain arguments are not needed if no context is provided. These are marked wit
   - `bold: true`
   - Set the text to be bold
 
+## Return value
+When no `ctx` is provided, a canvas is returned.
+This canvas has some custom properties set on it.
+- canvas.textWidth
+  - The width of the text in the output canvas
+- canvas.textHeight
+  - The height of the text in the output canvas
+- canvas.padding
+  - The size of the padding on each side of the text, in the order `[top, right, bottom, left]`
+
 ## Examples
 
 ### Drawing text and saving to a file
@@ -96,7 +106,7 @@ const text = await drawText("This is an example", {
 text.saveAs("out.png")
 ```
 ```js
-const text = await drawText("omg flushed emoji and weary emoji are kissing\n\n😳💋😩", {
+const text = await drawText("omg flushed emoji and weary emoji are kissing\n\n", {
   colour: "red",
   fontSize: 50,
   fontFamily: "Arial",

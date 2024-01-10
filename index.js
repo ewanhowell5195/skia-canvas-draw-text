@@ -56,7 +56,7 @@ export const drawText = async (text, args) => {
       }
     }
     maxHeight = Math.floor(maxHeight)
-    const textCanvas = new Canvas(maxWidth + shadowOffsets[1] + shadowOffsets[3], maxHeight + shadowOffsets[0] + shadowOffsets[2])
+    const textCanvas = new Canvas(Math.ceil(maxWidth + shadowOffsets[1] + shadowOffsets[3]), Math.ceil(maxHeight + shadowOffsets[0] + shadowOffsets[2]))
     const textCtx = textCanvas.getContext("2d")
     textCtx.font = `${bold}${args.fontSize}px${args.fontFamily ? ` ${args.fontFamily}` : ""}`
     textCtx.textBaseline = "top"
@@ -80,8 +80,8 @@ export const drawText = async (text, args) => {
       finalCtx = textCtx
     }
     if (!args.ctx) {
-      final.textWidth = maxWidth
-      final.textHeight = maxHeight
+      final.textWidth = Math.ceil(maxWidth)
+      final.textHeight = Math.ceil(maxHeight)
       final.padding = shadowOffsets
       return final
     }
@@ -190,9 +190,10 @@ export const drawText = async (text, args) => {
     ctx.shadowOffsetX = shadowOffsetX ?? 0
     ctx.shadowOffsetY = shadowOffsetY ?? 0
     ctx.drawImage(textCanvas, 0, 0)
+    const metrics = ctx.measureText(text)
     return {
-      textWidth: textCanvas.width - shadowOffsets[1] - shadowOffsets[3],
-      textHeight: textCanvas.height - shadowOffsets[0] - shadowOffsets[2]
+      textWidth: Math.ceil(metrics.width),
+      textHeight: Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent)
     }
   }
 }

@@ -80,8 +80,13 @@ Certain arguments are not needed if no context is provided. These are marked wit
   - Set the text to be bold
 
 ## Return value
-When no `ctx` is provided, a canvas is returned.
-This canvas has some custom properties set on it.
+When a `ctx` is provided, an object is returned with the follow properties:
+- canvas.textWidth
+  - The width of the text in the output canvas
+- canvas.textHeight
+  - The height of the text in the output canvas
+
+When no `ctx` is provided, a canvas is returned with the following custom properties set:
 - canvas.textWidth
   - The width of the text in the output canvas
 - canvas.textHeight

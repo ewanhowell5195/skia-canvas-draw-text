@@ -123,6 +123,10 @@ export const drawText = async (text, args) => {
     }
     args.location ??= [0, 0]
     ctx.drawImage(final, args.location[0] - horizontalOffset, args.location[1] - verticalOffset)
+    return {
+      textWidth: final.width - shadowOffsets[1] - shadowOffsets[3],
+      textHeight: final.height - shadowOffsets[0] - shadowOffsets[2]
+    }
   } else {
     args.location ??= [0, 0]
     let shadowOffsetX, shadowOffsetY, shadowOffsets, shadowDistance
@@ -186,6 +190,10 @@ export const drawText = async (text, args) => {
     ctx.shadowOffsetX = shadowOffsetX ?? 0
     ctx.shadowOffsetY = shadowOffsetY ?? 0
     ctx.drawImage(textCanvas, 0, 0)
+    return {
+      textWidth: textCanvas.width - shadowOffsets[1] - shadowOffsets[3],
+      textHeight: textCanvas.height - shadowOffsets[0] - shadowOffsets[2]
+    }
   }
 }
 

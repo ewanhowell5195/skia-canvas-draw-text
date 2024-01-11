@@ -61,9 +61,10 @@ export const drawText = async (text, args) => {
     textCtx.font = `${bold}${args.fontSize}px${args.fontFamily ? ` ${args.fontFamily}` : ""}`
     textCtx.textBaseline = "top"
     if (args.align) textCtx.textAlign = args.align
-    const drawStartX = (args.align === "center" ? maxWidth / 2 : args.align === "left" ? 0 : maxWidth) + shadowOffsets[3]
+    else textCtx.textAlign = "left"
+    const drawStartX = (args.align === "center" ? maxWidth / 2 : args.align === "right" ? maxWidth : 0) + shadowOffsets[3]
     textCtx.fillStyle = args.colour ?? "#000"
-    for (let i = 0; i < lines.length; i ++) {
+    for (let i = 0; i < lines.length; i++) {
       await fillTextWithTwemoji(textCtx, lines[i], drawStartX, shadowOffsets[0] + textHeight *  i + textGap * i)
     }
     let final, finalCtx
@@ -182,6 +183,7 @@ export const drawText = async (text, args) => {
     const textCtx = textCanvas.getContext("2d")
     textCtx.fillStyle = args.colour ?? "#000"
     if (args.align) textCtx.textAlign = args.align
+    else textCtx.textAlign = "left"
     if (args.baseline) textCtx.textBaseline = args.baseline
     textCtx.font = ctx.font
     await fillTextWithTwemoji(textCtx, text, args.location[0], args.location[1])

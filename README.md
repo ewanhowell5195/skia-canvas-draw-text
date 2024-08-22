@@ -78,12 +78,17 @@ Certain arguments are not needed if no context is provided. These are marked wit
 - bold
   - `bold: true`
   - Set the text to be bold
+- padding
+  - `padding: [5, 10, 15, 20]`
+  - The amount of padding added to each side
+  - The array is in the order `[top, right, bottom, left]`
+  - Requires no context, or a context with word wrapping enabled
 
 ## Return value
 When a `ctx` is provided, an object is returned with the follow properties:
-- canvas.textWidth
+- object.textWidth
   - The width of the text in the output canvas
-- canvas.textHeight
+- object.textHeight
   - The height of the text in the output canvas
 
 When no `ctx` is provided, a canvas is returned with the following custom properties set:
@@ -93,6 +98,7 @@ When no `ctx` is provided, a canvas is returned with the following custom proper
   - The height of the text in the output canvas
 - canvas.padding
   - The size of the padding on each side of the text, in the order `[top, right, bottom, left]`
+    - Padding comes from the initial padding argument, plus any extra padding added by text shadows
 
 ## Examples
 

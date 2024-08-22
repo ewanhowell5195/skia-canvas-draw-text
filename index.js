@@ -2,6 +2,7 @@ import { fillTextWithTwemoji } from "skia-canvas-twemoji"
 import { Canvas } from "skia-canvas"
 
 export const drawText = async (text, args) => {
+  text = text.trim()
   args ??= {}
   let ctx, fontFamily, bold
   if (args.ctx) ctx = args.ctx
@@ -17,6 +18,7 @@ export const drawText = async (text, args) => {
     fontFamily = ""
     args.fontSize = 10
   }
+  args.padding ??= [0, 0, 0, 0]
   if (args.wrap) {
     const widthRestriction = args.width ?? ctx.canvas.width
     let lines, maxWidth, metrics, textHeight, textGap, maxHeight, shadowOffsetX, shadowOffsetY, shadowOffsets, shadowDistance
@@ -56,7 +58,7 @@ export const drawText = async (text, args) => {
       }
     }
     maxHeight = Math.floor(maxHeight)
-    const textCanvas = new Canvas(Math.ceil(maxWidth + shadowOffsets[1] + shadowOffsets[3]), Math.ceil(maxHeight + shadowOffsets[0] + shadowOffsets[2]))
+    const textCanvas = new Canvas(Math.ceil(maxWidth + shadowOffsets[1] + shadowOffsets[3]) + args.padding[1] + args.padding[3], Math.ceil(maxHeight + shadowOffsets[0] + shadowOffsets[2]) + args.padding[0] + args.padding[2])
     const textCtx = textCanvas.getContext("2d")
     textCtx.font = `${bold}${args.fontSize}px${args.fontFamily ? ` ${args.fontFamily}` : ""}`
     textCtx.textBaseline = "top"
@@ -65,7 +67,7 @@ export const drawText = async (text, args) => {
     const drawStartX = (args.align === "center" ? maxWidth / 2 : args.align === "right" ? maxWidth : 0) + shadowOffsets[3]
     textCtx.fillStyle = args.colour ?? "#000"
     for (let i = 0; i < lines.length; i++) {
-      await fillTextWithTwemoji(textCtx, lines[i], drawStartX, shadowOffsets[0] + textHeight *  i + textGap * i)
+      await fillTextWithTwemoji(textCtx, lines[i], drawStartX + args.padding[3], shadowOffsets[0] + textHeight *  i + textGap * i + args.padding[0])
     }
     let final, finalCtx
     if (args.shadowOffset || args.shadowBlur) {
@@ -83,7 +85,7 @@ export const drawText = async (text, args) => {
     if (!args.ctx) {
       final.textWidth = Math.ceil(maxWidth)
       final.textHeight = Math.ceil(maxHeight)
-      final.padding = shadowOffsets
+      final.padding = args.padding.map((e, i) => e + shadowOffsets[i])
       return final
     }
     args.gravity ??= "nw"
@@ -161,12 +163,12 @@ export const drawText = async (text, args) => {
     }
     if (!args.ctx) {
       const metrics = ctx.measureText(text)
-      const textCanvas = new Canvas(Math.ceil(metrics.width) + shadowOffsets[1] + shadowOffsets[3], Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent) + shadowOffsets[0] + shadowOffsets[2])
+      const textCanvas = new Canvas(Math.ceil(metrics.width) + shadowOffsets[1] + shadowOffsets[3] + args.padding[1] + args.padding[3], Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent) + shadowOffsets[0] + shadowOffsets[2] + args.padding[0] + args.padding[2])
       const textCtx = textCanvas.getContext("2d")
       textCtx.fillStyle = args.colour ?? "#000"
       textCtx.textBaseline = "top"
       textCtx.font = ctx.font
-      await fillTextWithTwemoji(textCtx, text, shadowOffsets[3], shadowOffsets[0])
+      await fillTextWithTwemoji(textCtx, text, shadowOffsets[3] + args.padding[3], shadowOffsets[0] + args.padding[0])
       const final = new Canvas(textCanvas.width, textCanvas.height)
       const finalCtx = final.getContext("2d")
       finalCtx.shadowColor = args.shadowColour ?? "#000"
@@ -176,7 +178,7 @@ export const drawText = async (text, args) => {
       finalCtx.drawImage(textCanvas, 0, 0)
       final.textWidth = textCanvas.width - shadowOffsets[1] - shadowOffsets[3]
       final.textHeight = textCanvas.height - shadowOffsets[0] - shadowOffsets[2]
-      final.padding = shadowOffsets
+      final.padding = args.padding.map((e, i) => e + shadowOffsets[i])
       return final
     }
     const textCanvas = new Canvas(ctx.canvas.width, ctx.canvas.height)
@@ -224,7 +226,7 @@ function getLines(ctx, text, maxWidth) {
     for (const [i, word] of part.split("\n").entries()) {
       if (i > 0) {
         finalWidth = Math.max(finalWidth, ctx.measureText(currentLine).width)
-        lines.push(currentLine)
+        lines.push(currentLine.trim())
         currentLine = word
         if (ctx.measureText(currentLine).width > maxWidth) {
           charLines()
@@ -237,19 +239,22 @@ function getLines(ctx, text, maxWidth) {
         currentLine += spacer + word
       } else {
         if (ctx.measureText(word).width > maxWidth) {
-          lines.push(currentLine)
+          lines.push(currentLine.trim())
           currentLine = word
           charLines()
         } else {
           finalWidth = Math.max(finalWidth, ctx.measureText(currentLine).width)
-          lines.push(currentLine)
+          lines.push(currentLine.trim())
           currentLine = word
         }
       }
     }
   }
   finalWidth = Math.max(finalWidth, ctx.measureText(currentLine).width)
-  lines.push(currentLine)
+  lines.push(currentLine.trim())
+  if (lines.length > 1 && !lines[0]) {
+    lines.splice(0, 1)
+  }
   return [lines, finalWidth]
 }
 

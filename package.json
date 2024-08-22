@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ewanhowell5195/skia-canvas-draw-text.git"
+    "url": "git+https://github.com/ewanhowell5195/skia-canvas-draw-text.git"
   },
   "keywords": [
     "node",

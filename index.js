@@ -60,7 +60,7 @@ export const drawText = async (text, args) => {
     maxHeight = Math.floor(maxHeight)
     const textCanvas = new Canvas(Math.ceil(maxWidth + shadowOffsets[1] + shadowOffsets[3]) + args.padding[1] + args.padding[3], Math.ceil(maxHeight + shadowOffsets[0] + shadowOffsets[2]) + args.padding[0] + args.padding[2])
     const textCtx = textCanvas.getContext("2d")
-    textCtx.font = `${bold}${args.fontSize}px${args.fontFamily ? ` ${args.fontFamily}` : ""}`
+    textCtx.font = `${bold}${args.fontSize}px${fontFamily}`
     textCtx.textBaseline = "top"
     if (args.align) textCtx.textAlign = args.align
     else textCtx.textAlign = "left"

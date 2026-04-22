@@ -11,11 +11,11 @@ export const drawText = async (text, args) => {
     ctx = canvas.getContext("2d")
   }
   if (args.fontSize) {
-    fontFamily = args.fontFamily ? ` "${args.fontFamily}"` : ""
+    fontFamily = args.fontFamily ? ` "${args.fontFamily}"` : " sans-serif"
     bold = args.bold ? (args.bold === true ? "bold " : `${args.bold} `) : ""
     ctx.font = `${bold}${args.fontSize}px${fontFamily}`
   } else {
-    fontFamily = ""
+    fontFamily = " sans-serif"
     args.fontSize = 10
   }
   args.padding ??= [0, 0, 0, 0]

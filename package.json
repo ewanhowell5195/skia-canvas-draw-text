@@ -5,7 +5,7 @@
   "type": "module",
   "exports": "./index.js",
   "author": "Ewan Howell",
-  "license": "MIT",
+  "license": "MPL-2.0",
   "dependencies": {
     "skia-canvas": "^3.0.8",
     "skia-canvas-twemoji": "github:ewanhowell5195/skia-canvas-twemoji"

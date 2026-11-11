@@ -1,6 +1,6 @@
 {
   "name": "skia-canvas-draw-text",
-  "version": "3.0.2",
+  "version": "4.0.0",
   "description": "A function to make drawing text easier with skia-canvas",
   "type": "module",
   "exports": {
@@ -8,7 +8,10 @@
     "default": "./index.js"
   },
   "types": "./index.d.ts",
-  "files": ["index.js", "index.d.ts"],
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
   "scripts": {
     "test": "node --test"
   },

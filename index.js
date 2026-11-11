@@ -1,261 +1,189 @@
-import { fillTextWithTwemoji } from "skia-canvas-twemoji"
+import { fillText, measureText, splitText, strokeText } from "skia-canvas-with-twemoji"
 import { Canvas } from "skia-canvas"
 
-export const drawText = async (text, args) => {
-  text = text.trim()
-  args ??= {}
-  let ctx, fontFamily, bold
-  if (args.ctx) ctx = args.ctx
-  else {
-    const canvas = new Canvas(1, 1)
-    ctx = canvas.getContext("2d")
+const segmenter = new Intl.Segmenter()
+const aligns = ["left", "center", "right"]
+const baselines = ["top", "middle", "bottom", "alphabetic", "hanging", "ideographic"]
+const defaults = { fontSize: 10, minFontSize: 1, colour: "#000", location: [0, 0], align: "left", baseline: "alphabetic", lineHeight: 1, shadowColour: "#000", shadowBlur: 0, shadowOffset: [0, 0], outlineColour: "#000", outlineWidth: 0, padding: [0, 0, 0, 0] }
+
+export function drawText(text, args = {}) {
+  const options = Object.assign({}, defaults, Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined)))
+  if (!aligns.includes(options.align)) throw new Error(`Invalid align "${options.align}", expected one of ${aligns.join(", ")}`)
+  if (!baselines.includes(options.baseline)) throw new Error(`Invalid baseline "${options.baseline}", expected one of ${baselines.join(", ")}`)
+  text = String(text).replace(/\r\n?/g, "\n")
+  const measureCtx = new Canvas(1, 1).getContext("2d")
+  const shadow = shadowLayout(options)
+  const extraWidth = shadow.offsets[1] + shadow.offsets[3] + options.outlineWidth * 2
+  const extraHeight = shadow.offsets[0] + shadow.offsets[2] + options.outlineWidth * 2
+  const maxWidth = (options.maxWidth ?? (options.wrap ? options.ctx?.canvas.width : undefined) ?? Infinity) - extraWidth
+  const maxHeight = (options.maxHeight ?? Infinity) - extraHeight
+  const wrapWidth = options.wrap ? maxWidth : Infinity
+  const fontSize = fitFontSize(options, size => {
+    const layout = textLayout(text, options, measureCtx, size, wrapWidth)
+    return layout.width <= maxWidth && layout.height <= maxHeight && (options.maxWidth === undefined || !layout.broke)
+  })
+  const layout = textLayout(text, options, measureCtx, fontSize, wrapWidth)
+  const { lines, width, height, ascent, descent, pitch } = layout
+  const edges = addEdges(shadow.offsets, overhang(measureCtx, lines, width, options.align, ascent, descent, options.outlineWidth))
+  const [top, right, bottom, left] = edges
+  const textCanvas = new Canvas(Math.max(Math.ceil(width) + right + left + options.padding[1] + options.padding[3], 1), Math.max(Math.ceil(height) + top + bottom + options.padding[0] + options.padding[2], 1))
+  const textCtx = textCanvas.getContext("2d")
+  textCtx.font = measureCtx.font
+  textCtx.textAlign = options.align
+  const anchor = alignOffset(options.align, width)
+  for (const [i, line] of lines.entries()) {
+    drawGlyphs(textCtx, line, left + options.padding[3] + anchor, top + options.padding[0] + ascent + pitch * i, options)
   }
-  if (args.fontSize) {
-    fontFamily = args.fontFamily ? ` "${args.fontFamily}"` : " sans-serif"
-    bold = args.bold ? (args.bold === true ? "bold " : `${args.bold} `) : ""
-    ctx.font = `${bold}${args.fontSize}px${fontFamily}`
-  } else {
-    fontFamily = " sans-serif"
-    args.fontSize = 10
+  const final = withShadow(textCanvas, options, shadow)
+  final.textWidth = Math.ceil(width)
+  final.textHeight = Math.ceil(height)
+  final.fontSize = fontSize
+  final.padding = options.padding.map((e, i) => e + edges[i])
+  if (options.ctx) options.ctx.drawImage(final, Math.round(options.location[0] - final.padding[3] - anchor), Math.round(options.location[1] - final.padding[0] - baselineOffset(measureCtx, options.baseline, layout)))
+  return final
+}
+
+function textLayout(text, options, measureCtx, fontSize, wrapWidth) {
+  measureCtx.font = fontString(options, fontSize)
+  measureCtx.textBaseline = "alphabetic"
+  const { lines, width, broke } = getLines(measureCtx, text, wrapWidth)
+  const metrics = measureText(measureCtx, "")
+  const lineHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent
+  const pitch = lineHeight * options.lineHeight
+  return { lines, width, broke, ascent: metrics.fontBoundingBoxAscent, descent: metrics.fontBoundingBoxDescent, pitch, height: lineHeight + pitch * (lines.length - 1) }
+}
+
+function baselineOffset(measureCtx, baseline, layout) {
+  const last = layout.pitch * (layout.lines.length - 1)
+  if (baseline === "bottom") return last + baselineAscent(measureCtx, "bottom")
+  if (baseline === "middle") return (baselineAscent(measureCtx, "top") + last + baselineAscent(measureCtx, "bottom")) / 2
+  return baselineAscent(measureCtx, baseline)
+}
+
+function baselineAscent(measureCtx, baseline) {
+  measureCtx.textBaseline = baseline
+  return measureText(measureCtx, "").fontBoundingBoxAscent
+}
+
+function alignOffset(align, width) {
+  return align === "center" ? width / 2 : align === "right" ? width : 0
+}
+
+function fitFontSize(options, fits) {
+  if (fits(options.fontSize)) return options.fontSize
+  let low = Math.min(options.minFontSize, options.fontSize)
+  if (!fits(low)) return low
+  let high = options.fontSize
+  while (high - low > 1) {
+    const mid = Math.floor((low + high) / 2)
+    if (fits(mid)) low = mid
+    else high = mid
   }
-  args.padding ??= [0, 0, 0, 0]
-  if (args.wrap) {
-    const widthRestriction = args.width ?? ctx.canvas.width
-    let lines, maxWidth, metrics, textHeight, textGap, maxHeight, shadowOffsetX, shadowOffsetY, shadowOffsets, shadowDistance
-    function calculate() {
-      shadowOffsets = [0, 0, 0, 0]
-      shadowOffsetX = args.shadowOffset ? Math.ceil(args.fontSize / 200 * args.shadowOffset[0]) : 0
-      shadowOffsetY = args.shadowOffset ? Math.ceil(args.fontSize / 200 * args.shadowOffset[1]) : 0
-      if (shadowOffsetX > 0) {
-        shadowOffsets[1] = shadowOffsetX
-        shadowOffsets[3] = -shadowOffsetX
-      } else {
-        shadowOffsets[1] = -Math.abs(shadowOffsetX)
-        shadowOffsets[3] = -shadowOffsets[1]
-      }
-      if (shadowOffsetY > 0) {
-        shadowOffsets[0] = -shadowOffsetY
-        shadowOffsets[2] = shadowOffsetY
-      } else {
-        shadowOffsets[0] = Math.abs(shadowOffsetY)
-        shadowOffsets[2] = -shadowOffsets[0]
-      }
-      shadowDistance = args.shadowBlur ? Math.ceil(args.fontSize / 100 * args.shadowBlur) * 4 / 3 : 0
-      shadowOffsets = shadowOffsets.map(e => Math.max(Math.ceil(e + shadowDistance), 0));
-      [lines, maxWidth] = getLines(ctx, text, widthRestriction - shadowOffsets[1] - shadowOffsets[3])
-      metrics = ctx.measureText("e")
-      textHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent
-      textGap = textHeight / 100 * (args.spacing ?? 0)
-      maxHeight = (textHeight * lines.length + textGap * (lines.length - 1))
-    }
-    calculate()
-    if (args.height) {
-      let heightLimit = args.height - shadowOffsets[0] - shadowOffsets[2]
-      while (args.fontSize > 1 && maxHeight >= heightLimit) {
-        ctx.font = `${bold}${args.fontSize--}px${fontFamily}`
-        calculate()
-        heightLimit = args.height - shadowOffsets[0] - shadowOffsets[2]
-      }
-    }
-    maxHeight = Math.floor(maxHeight)
-    const textCanvas = new Canvas(Math.ceil(maxWidth + shadowOffsets[1] + shadowOffsets[3]) + args.padding[1] + args.padding[3], Math.ceil(maxHeight + shadowOffsets[0] + shadowOffsets[2]) + args.padding[0] + args.padding[2])
-    const textCtx = textCanvas.getContext("2d")
-    textCtx.font = `${bold}${args.fontSize}px${fontFamily}`
-    textCtx.textBaseline = "top"
-    if (args.align) textCtx.textAlign = args.align
-    else textCtx.textAlign = "left"
-    const drawStartX = (args.align === "center" ? maxWidth / 2 : args.align === "right" ? maxWidth : 0) + shadowOffsets[3]
-    textCtx.fillStyle = args.colour ?? "#000"
-    for (let i = 0; i < lines.length; i++) {
-      await fillTextWithTwemoji(textCtx, lines[i], drawStartX + args.padding[3], shadowOffsets[0] + textHeight *  i + textGap * i + args.padding[0])
-    }
-    let final, finalCtx
-    if (args.shadowOffset || args.shadowBlur) {
-      final = new Canvas(textCanvas.width, textCanvas.height)
-      finalCtx = final.getContext("2d")
-      finalCtx.shadowColor = args.shadowColour ?? "#000"
-      finalCtx.shadowBlur = args.shadowBlur ? args.fontSize / 100 * args.shadowBlur : 0
-      finalCtx.shadowOffsetX = shadowOffsetX
-      finalCtx.shadowOffsetY = shadowOffsetY
-      finalCtx.drawImage(textCanvas, 0, 0)
-    } else {
-      final = textCanvas
-      finalCtx = textCtx
-    }
-    if (!args.ctx) {
-      final.textWidth = Math.ceil(maxWidth)
-      final.textHeight = Math.ceil(maxHeight)
-      final.padding = args.padding.map((e, i) => e + shadowOffsets[i])
-      return final
-    }
-    args.gravity ??= "nw"
-    let horizontalOffset, verticalOffset
-    switch (args.gravity) {
-      case "nw":
-      case "w":
-      case "sw":
-        horizontalOffset = shadowOffsets[3]
-        break
-      case "n":
-      case "c":
-      case "s":
-        horizontalOffset = final.width / 2 - shadowOffsets[1] / 2 + shadowOffsets[3] / 2
-        break
-      case "ne":
-      case "e":
-      case "se":
-        horizontalOffset = final.width - shadowOffsets[1]
-        break
-    }
-    switch (args.gravity) {
-      case "nw":
-      case "n":
-      case "ne":
-        verticalOffset = shadowOffsets[0]
-        break
-      case "w":
-      case "c":
-      case "e":
-        verticalOffset = final.height / 2 - shadowOffsets[2] / 2 + shadowOffsets[0] / 2
-        break
-      case "sw":
-      case "s":
-      case "se":
-        verticalOffset = final.height - shadowOffsets[2]
-        break
-    }
-    args.location ??= [0, 0]
-    ctx.drawImage(final, args.location[0] - horizontalOffset, args.location[1] - verticalOffset)
-    return {
-      textWidth: final.width - shadowOffsets[1] - shadowOffsets[3],
-      textHeight: final.height - shadowOffsets[0] - shadowOffsets[2]
-    }
-  } else {
-    args.location ??= [0, 0]
-    let shadowOffsetX, shadowOffsetY, shadowOffsets, shadowDistance
-    function calculate() {
-      shadowOffsets = [0, 0, 0, 0]
-      shadowOffsetX = args.shadowOffset ? Math.ceil(args.fontSize / 200 * args.shadowOffset[0]) : 0
-      shadowOffsetY = args.shadowOffset ? Math.ceil(args.fontSize / 200 * args.shadowOffset[1]) : 0
-      if (shadowOffsetX > 0) {
-        shadowOffsets[1] = shadowOffsetX
-        shadowOffsets[3] = -shadowOffsetX
-      } else {
-        shadowOffsets[1] = -Math.abs(shadowOffsetX)
-        shadowOffsets[3] = -shadowOffsets[1]
-      }
-      if (shadowOffsetY > 0) {
-        shadowOffsets[0] = -shadowOffsetY
-        shadowOffsets[2] = shadowOffsetY
-      } else {
-        shadowOffsets[0] = Math.abs(shadowOffsetY)
-        shadowOffsets[2] = -shadowOffsets[0]
-      }
-      shadowDistance = args.shadowBlur ? Math.ceil(args.fontSize / 100 * args.shadowBlur) * 4 / 3 : 0
-      shadowOffsets = shadowOffsets.map(e => Math.max(Math.ceil(e + shadowDistance), 0))
-    }
-    calculate()
-    if (args.width) {
-      while (args.fontSize > 1 && ctx.measureText(text).width > (args.width - shadowOffsets[1] - shadowOffsets[3])) {
-        ctx.font = `${bold}${args.fontSize--}px${fontFamily}`
-        calculate()
-      }
-    }
-    if (!args.ctx) {
-      const metrics = ctx.measureText(text)
-      const textCanvas = new Canvas(Math.ceil(metrics.width) + shadowOffsets[1] + shadowOffsets[3] + args.padding[1] + args.padding[3], Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent) + shadowOffsets[0] + shadowOffsets[2] + args.padding[0] + args.padding[2])
-      const textCtx = textCanvas.getContext("2d")
-      textCtx.fillStyle = args.colour ?? "#000"
-      textCtx.textBaseline = "top"
-      textCtx.font = ctx.font
-      await fillTextWithTwemoji(textCtx, text, shadowOffsets[3] + args.padding[3], shadowOffsets[0] + args.padding[0])
-      const final = new Canvas(textCanvas.width, textCanvas.height)
-      const finalCtx = final.getContext("2d")
-      finalCtx.shadowColor = args.shadowColour ?? "#000"
-      finalCtx.shadowBlur = args.shadowBlur ? args.fontSize / 100 * args.shadowBlur : 0
-      finalCtx.shadowOffsetX = shadowOffsetX ?? 0
-      finalCtx.shadowOffsetY = shadowOffsetY ?? 0
-      finalCtx.drawImage(textCanvas, 0, 0)
-      final.textWidth = textCanvas.width - shadowOffsets[1] - shadowOffsets[3]
-      final.textHeight = textCanvas.height - shadowOffsets[0] - shadowOffsets[2]
-      final.padding = args.padding.map((e, i) => e + shadowOffsets[i])
-      return final
-    }
-    const textCanvas = new Canvas(ctx.canvas.width, ctx.canvas.height)
-    const textCtx = textCanvas.getContext("2d")
-    textCtx.fillStyle = args.colour ?? "#000"
-    if (args.align) textCtx.textAlign = args.align
-    else textCtx.textAlign = "left"
-    if (args.baseline) textCtx.textBaseline = args.baseline
-    textCtx.font = ctx.font
-    await fillTextWithTwemoji(textCtx, text, args.location[0], args.location[1])
-    ctx.shadowColor = args.shadowColour ?? "#000"
-    ctx.shadowBlur = args.shadowBlur ? args.fontSize / 100 * args.shadowBlur : 0
-    ctx.shadowOffsetX = shadowOffsetX ?? 0
-    ctx.shadowOffsetY = shadowOffsetY ?? 0
-    ctx.drawImage(textCanvas, 0, 0)
-    const metrics = ctx.measureText(text)
-    return {
-      textWidth: Math.ceil(metrics.width),
-      textHeight: Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent)
-    }
+  return low
+}
+
+function drawGlyphs(ctx, text, x, y, options) {
+  if (options.outlineWidth) {
+    ctx.strokeStyle = options.outlineColour
+    ctx.lineWidth = options.outlineWidth * 2
+    ctx.lineJoin = "round"
+    strokeText(ctx, text, x, y)
   }
+  ctx.fillStyle = options.colour
+  fillText(ctx, text, x, y)
+}
+
+function fontString(options, fontSize) {
+  const family = options.fontFamily ? `"${options.fontFamily.replace(/^(["'])(.*)\1$/, "$2")}"` : "sans-serif"
+  return [options.fontStyle, options.fontWeight, `${fontSize}px`, family].filter(Boolean).join(" ")
+}
+
+function shadowLayout(options) {
+  const [x, y] = options.shadowOffset
+  const spread = options.shadowBlur * 1.5
+  return { x, y, offsets: [-y, x, y, -x].map(e => Math.max(Math.ceil(e + spread), 0)) }
+}
+
+function withShadow(canvas, options, shadow) {
+  if (!options.shadowBlur && !shadow.x && !shadow.y) return canvas
+  const final = new Canvas(canvas.width, canvas.height)
+  const ctx = final.getContext("2d")
+  ctx.shadowColor = options.shadowColour
+  ctx.shadowBlur = options.shadowBlur
+  ctx.shadowOffsetX = shadow.x
+  ctx.shadowOffsetY = shadow.y
+  ctx.drawImage(canvas, 0, 0)
+  return final
+}
+
+function overhang(ctx, lines, width, align, ascent, descent, outline) {
+  let top = 0
+  let right = 0
+  let bottom = 0
+  let left = 0
+  for (const [i, line] of lines.entries()) {
+    const metrics = measureText(ctx, line)
+    const x = alignOffset(align, width) - alignOffset(align, metrics.width)
+    left = Math.max(left, metrics.actualBoundingBoxLeft + outline - x)
+    right = Math.max(right, x + metrics.actualBoundingBoxRight + outline - width)
+    if (i === 0) top = Math.max(top, metrics.actualBoundingBoxAscent + outline - ascent)
+    if (i === lines.length - 1) bottom = Math.max(bottom, metrics.actualBoundingBoxDescent + outline - descent)
+  }
+  return [top, right, bottom, left].map(e => Math.ceil(e))
+}
+
+function addEdges(a, b) {
+  return a.map((e, i) => e + b[i])
 }
 
 function getLines(ctx, text, maxWidth) {
-  const parts = text.split(" ")
   const lines = []
-  let currentLine = ""
-  let finalWidth = 0
-  function charLines() {
-    const chars = currentLine.split("")
-    let currentPart = ""
-    for (const char of chars) {
-      const charWidth = ctx.measureText(currentPart + char + "-").width
-      if (charWidth <= maxWidth) {
-        currentPart += char
-      } else {
-        finalWidth = Math.max(finalWidth, ctx.measureText(currentPart + "-").width)
-        lines.push(currentPart + "-")
-        currentPart = char
-      }
-    }
-    currentLine = currentPart
-  }
-  for (const part of parts) {
-    for (const [i, word] of part.split("\n").entries()) {
-      if (i > 0) {
-        finalWidth = Math.max(finalWidth, ctx.measureText(currentLine).width)
-        lines.push(currentLine.trim())
-        currentLine = word
-        if (ctx.measureText(currentLine).width > maxWidth) {
-          charLines()
-        }
+  let broke = false
+  for (const paragraph of text.split("\n")) {
+    let current = ""
+    for (const [i, token] of (paragraph.match(/\s*\S+/g) ?? [""]).entries()) {
+      const candidate = current + token
+      if (textWidth(ctx, candidate) <= maxWidth) {
+        current = candidate
         continue
       }
-      const spacer = currentLine === "" ? "" : " "
-      const width = ctx.measureText(currentLine + spacer + word).width
-      if (width <= maxWidth) {
-        currentLine += spacer + word
-      } else {
-        if (ctx.measureText(word).width > maxWidth) {
-          lines.push(currentLine.trim())
-          currentLine = word
-          charLines()
-        } else {
-          finalWidth = Math.max(finalWidth, ctx.measureText(currentLine).width)
-          lines.push(currentLine.trim())
-          currentLine = word
-        }
+      const word = i === 0 ? token : token.trimStart()
+      if (current) lines.push(current)
+      if (textWidth(ctx, word) <= maxWidth) {
+        current = word
+        continue
       }
+      broke = true
+      const parts = breakWord(ctx, word, maxWidth)
+      current = parts.pop()
+      lines.push(...parts)
     }
+    lines.push(current)
   }
-  finalWidth = Math.max(finalWidth, ctx.measureText(currentLine).width)
-  lines.push(currentLine.trim())
-  if (lines.length > 1 && !lines[0]) {
-    lines.splice(0, 1)
+  return { lines, width: Math.max(...lines.map(line => textWidth(ctx, line))), broke }
+}
+
+function breakWord(ctx, word, maxWidth) {
+  const parts = []
+  let current = ""
+  for (const { segment } of segmenter.segment(word)) {
+    if (!current || textWidth(ctx, current + segment + hyphen(segment)) <= maxWidth) {
+      current += segment
+      continue
+    }
+    parts.push(current + hyphen(current))
+    current = segment
   }
-  return [lines, finalWidth]
+  parts.push(current)
+  return parts
+}
+
+function hyphen(text) {
+  return splitText(text).at(-1)?.type === "emoji" ? "" : "-"
+}
+
+function textWidth(ctx, text) {
+  return measureText(ctx, text).width
 }
 
 export default drawText

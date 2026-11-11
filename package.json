@@ -3,12 +3,20 @@
   "version": "3.0.2",
   "description": "A function to make drawing text easier with skia-canvas",
   "type": "module",
-  "exports": "./index.js",
+  "exports": {
+    "types": "./index.d.ts",
+    "default": "./index.js"
+  },
+  "types": "./index.d.ts",
+  "files": ["index.js", "index.d.ts"],
+  "scripts": {
+    "test": "node --test"
+  },
   "author": "Ewan Howell",
   "license": "MPL-2.0",
   "dependencies": {
-    "skia-canvas": "^3.0.8",
-    "skia-canvas-twemoji": "github:ewanhowell5195/skia-canvas-twemoji"
+    "skia-canvas": "^4.0.0",
+    "skia-canvas-with-twemoji": "^1.0.0"
   },
   "repository": {
     "type": "git",

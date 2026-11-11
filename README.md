@@ -30,7 +30,7 @@ const text = drawText("Hello there! 👋", {
   colour: "#f0f"
 })
 
-text.saveAs("out.png")
+text.toFile("out.png")
 ```
 
 ## Options
@@ -81,7 +81,7 @@ A canvas with the text drawn on it is always returned, with these properties set
 ```js
 const text = drawText("Hello there!")
 
-text.saveAs("out.png")
+text.toFile("out.png")
 ```
 ```js
 const text = drawText("omg flushed emoji and weary emoji are kissing\n\n😳💋😩", {
@@ -99,7 +99,7 @@ const text = drawText("omg flushed emoji and weary emoji are kissing\n\n😳💋
   fontWeight: "bold"
 })
 
-text.saveAs("out.png")
+text.toFile("out.png")
 ```
 
 ### Drawing to an existing canvas
@@ -132,7 +132,7 @@ drawText("This is a test\nwith multiple lines of text\nto show alignment and stu
   fontWeight: "bold"
 })
 
-canvas.saveAs("out.png")
+canvas.toFile("out.png")
 ```
 
 ## License
